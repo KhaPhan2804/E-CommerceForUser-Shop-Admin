@@ -3,6 +3,8 @@ export type ParamList = {
     Cart: undefined,
     Delivery:undefined,
     Shop:undefined,
+    PaymentAccept:undefined,
+    PaymentCancel:undefined,
     AfterOrder:{
         MaKH: number,
     },
@@ -120,6 +122,7 @@ export type ParamList = {
     },
     Payment:{
         totalCost: number;
+        maKH: string;
     },
 };
 export default ParamList;

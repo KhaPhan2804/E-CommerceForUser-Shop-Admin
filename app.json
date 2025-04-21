@@ -8,6 +8,10 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "deepLinks": [
+      "myapp://payment-success",
+      "myapp://payment-cancel"
+    ],
     "ios": {
       "supportsTablet": true
     },

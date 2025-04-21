@@ -9,3 +9,47 @@ entrypoint = "./functions/create-payment/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/create-payment/*.html" ]
+
+[functions.GHN]
+enabled = true
+verify_jwt = true
+import_map = "./functions/GHN/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/GHN/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/GHN/*.html" ]
+
+[functions.paymentOS]
+enabled = true
+verify_jwt = true
+import_map = "./functions/paymentOS/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/paymentOS/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/paymentOS/*.html" ]
+
+[functions.cancelOS]
+enabled = true
+verify_jwt = true
+import_map = "./functions/cancelOS/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/cancelOS/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/cancelOS/*.html" ]
+
+[functions.getOS]
+enabled = true
+verify_jwt = true
+import_map = "./functions/getOS/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/getOS/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/getOS/*.html" ]

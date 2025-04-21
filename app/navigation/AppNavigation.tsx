@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native'
+
 import React from 'react'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import CartScreen from '../screens/CartScreen';
@@ -42,14 +42,16 @@ import SearchShop from '../shop/SearchShop';
 import SearchShopProduct from '../shop/SearchShopProduct';
 import ShopSale from '../shop/ShopSale';
 import PaymentConfirm from '../screens/PaymentConfirm';
-
-
+import PaymentAccept from '../screens/PaymentAccept';
+import PaymentCancel from '../screens/PaymentCancel';
 
 const Stack = createNativeStackNavigator<ParamList>();
 
+
+
 export default function AppNavigation() {
   return (
-    <Stack.Navigator screenOptions={{headerShown:false}} initialRouteName='Main'>
+    <Stack.Navigator screenOptions={{headerShown:false}} initialRouteName='Main' >
       <Stack.Screen name="Main" component={BottomNavigation} />
       <Stack.Screen name="Cart" options={{presentation: 'modal'}} component={CartScreen} />
       <Stack.Screen name="Order" component={OrderScreen}/>
@@ -87,6 +89,8 @@ export default function AppNavigation() {
       <Stack.Screen name="SearchShopProduct" component={SearchShopProduct}/>
       <Stack.Screen name="ShopSale" component={ShopSale}/>
       <Stack.Screen name="Payment" component={PaymentConfirm}/>
+      <Stack.Screen name="PaymentAccept" component={PaymentAccept}/>
+      <Stack.Screen name="PaymentCancel" component={PaymentCancel}/>
     </Stack.Navigator>
   )
 }

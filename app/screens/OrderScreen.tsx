@@ -168,7 +168,7 @@ export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) 
         navigation.navigate('AfterOrder', {MaKH: Number(maKH)});
       }
       else{
-        navigation.navigate('Payment',{totalCost: totalCost1});
+        navigation.navigate('Payment',{totalCost: totalCost1, maKH: maKH});
       }
 
     }catch(error){

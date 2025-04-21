@@ -1,100 +1,183 @@
-import { View, Text, Button, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useRoute, RouteProp } from '@react-navigation/native';
-import ParamList from '../navigation/Data';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from 'expo-router';
-import supabase, { getJwtToken } from '../database/supabase';
+import * as Linking from 'expo-linking';
+import ParamList from '../navigation/Data';
+import { createPaymentLink, cancelPayment, getPaymentInfo } from '../database/payment';
+import { WebView } from 'react-native-webview';
 
-// Define types for route and navigation props
 type PaymentRouteProp = RouteProp<ParamList, 'Order'>;
 type NavigationProp = NativeStackNavigationProp<ParamList, 'Payment'>;
 
 export default function PaymentConfirm() {
   const route = useRoute<PaymentRouteProp>();
-  const { totalCost } = route.params;  // Access total cost from route params
+  const { totalCost, maKH } = route.params;
   const navigation = useNavigation<NavigationProp>();
-  const [paymentUrl, setPaymentUrl] = useState<string>(''); // To store the payment URL
+  const [paymentUrl, setPaymentUrl] = useState<string>('');
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Ensure to replace these with actual environment variables or a config
-  const clientId = '674ded78-8dfa-4d79-8562-4a0dd12e1d72';  // Replace with your actual client ID
-  const apiKey = '4b3c7eaa-8cc6-4a63-9f15-8eec82f893be';  // Replace with your actual API Key
+  const returnUrl = 'myapp://payment-success';
+  const cancelUrl = 'myapp://payment-success';
 
-  // Function to create payment
   const createPayment = async () => {
     try {
-      const jwtToken = await getJwtToken();
-      console.log('Authorization Header:', `Bearer ${jwtToken}`);  // Get the JWT token
-
-      if (!jwtToken) {
-        console.log('No JWT Token available!');
-        return;
-      }
-
-      // Ensure totalCost is a valid number
-      if (!totalCost || isNaN(totalCost)) {
-        console.log('Invalid totalCost:', totalCost);
-        return;
-      }
-      console.log('Total Cost:', totalCost);
-
-      // Making the API request to create a payment
-      const response = await fetch('https://njulzxtvzglbrsxdgbcq.supabase.co/functions/v1/create-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': clientId,
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${jwtToken}`,
-        },
-        body: JSON.stringify({
-          amount: totalCost,
-          description: 'Test Order',  // Customize with actual order details
-        }),
+      const response = await createPaymentLink({
+        orderCode: Math.floor(Math.random() * 1000000),
+        amount: totalCost,
+        description: "Thanh toán đơn hàng",
+        returnUrl,
+        cancelUrl,
       });
 
-      if (!response.ok) {
-        console.log('Error: API request failed with status', response.status);
-        const errorText = await response.text();
-        console.log('Error response:', errorText);
-        return;
-      }
-
-      const data = await response.json();
-      console.log('Payment Link:', data.checkoutUrl);
-
-      // If payment URL is returned, update the state to redirect the user
-      if (data.checkoutUrl) {
-        setPaymentUrl(data.checkoutUrl);
+      const { checkoutUrl, orderCode } = response?.data || {};
+      if (checkoutUrl) {
+        setPaymentUrl(checkoutUrl);
+        setPaymentId(orderCode);
       } else {
-        console.log('Error: No checkout URL found');
+        throw new Error("Missing checkout URL");
       }
     } catch (error) {
-      console.log('Error creating payment:', error);
+      console.error("Payment request failed:", error);
     }
   };
 
-  // Handle payment redirection
-  const handlePaymentRedirect = () => {
-    if (paymentUrl) {
-      Linking.openURL(paymentUrl)  // Open the payment URL in the browser
-        .catch((err) => console.error('Error opening payment URL', err));
+  const interceptNavigation = async (event: any) => {
+    const url = event.url;
+
+    if (url.includes('/payment-success')) {
+      if (paymentId) {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          const info = await getPaymentInfo(paymentId);
+          console.log("Payment Info:", info);
+        } catch (e) {
+          console.error("Failed to fetch info for paymentId:", paymentId);
+        }
+      }
+
+      navigation.navigate('AfterOrder', { MaKH: Number(maKH) });
+      return false;
     }
+
+    if (url.includes('/payment-cancel')) {
+      if (paymentId) {
+        try {
+          await cancelPayment(paymentId, 'Người dùng hủy thanh toán');
+          console.log("Payment cancelled.");
+        } catch (err) {
+          console.error("Cancel failed:", err);
+        }
+      }
+      navigation.goBack();
+      return false;
+    }
+
+    return true;
   };
 
-  // Trigger the payment creation once the component is mounted
   useEffect(() => {
     createPayment();
-  }, []);  // Empty dependency array ensures this runs only once on mount
+
+    const handleDeepLink = async (event: any) => {
+      const url = event.url;
+
+      if (url.includes('/payment-success')) {
+        navigation.navigate('AfterOrder', { MaKH: Number(maKH) });
+      }
+
+      if (url.includes('/payment-cancel')) {
+        if (paymentId) {
+          try {
+            await cancelPayment(paymentId, 'Người dùng hủy thanh toán');
+            navigation.navigate('PaymentCancel');
+          } catch (err) {
+            console.error("Cancel failed:", err);
+          }
+        }
+        navigation.goBack();
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
+  }, []);
 
   return (
-    <View>
-      <Text>Payment Confirmation {totalCost} </Text>
+    <View style={styles.container}>
       {paymentUrl ? (
-        <Button title="Go to Payment" onPress={handlePaymentRedirect} />
+        <>
+          {loading && <ActivityIndicator size="large" color="#0000ff" style={styles.loading} />}
+          <WebView
+            source={{ uri: paymentUrl }}
+            onLoadEnd={() => setLoading(false)}
+            startInLoadingState={true}
+            style={{ flex: 1 }}
+            onShouldStartLoadWithRequest={(event) => {
+              interceptNavigation(event);
+              return true;
+            }}
+          />
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: '#ff5555' }]}
+              onPress={async () => {
+                if (paymentId) {
+                  await cancelPayment(paymentId, 'Người dùng hủy thanh toán');
+                }
+                navigation.navigate('PaymentCancel');
+              }}
+            >
+              <Text style={styles.buttonText}>❌ Hủy thanh toán</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: '#4CAF50' }]}
+              onPress={() => {
+                navigation.navigate('PaymentAccept');
+              }}
+            >
+              <Text style={styles.buttonText}>✅ Xác nhận đã thanh toán</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       ) : (
-        <Text>Loading...</Text>
+        <Text style={styles.text}>Loading payment URL...</Text>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loading: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+  text: {
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+  },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+});
