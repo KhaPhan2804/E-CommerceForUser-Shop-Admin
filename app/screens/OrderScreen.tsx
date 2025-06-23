@@ -7,12 +7,15 @@ import supabase from '../database/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Crypto from 'expo-crypto';
+import { getShipmentFee } from '../database/GHTK'
 
 
 type OrderScreenRouteProp = RouteProp<ParamList, 'Order'>;
 
 
 type navigationProp = NativeStackNavigationProp<ParamList, 'AfterOrder'>;
+
+type navigationProp1 = NativeStackNavigationProp<ParamList, 'Payment'>;
 
 
 
@@ -24,62 +27,139 @@ const formatPrice = new Intl.NumberFormat('vi-VN', {
 export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) {
   const { selectedData, totalCost, maKH, address } = route.params;
   const navigation = useNavigation<navigationProp>();
+  const navigation1 = useNavigation<navigationProp1>();
   const [cart, setCart] = useState(selectedData);  
   const [paymentMethod, setPaymentMethod] = useState<string>('Thanh toán khi nhận hàng');
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
-  const [shippingFees, setShippingFees] = useState<{ [productId: number]: any }>({});
-  const [selectedShipping, setSelectedShipping] = useState<{ [productId: number]: string }>({});
+  const [shippingFees, setShippingFees] = useState<{ [productId: number]: number }>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [currentProductId, setCurrentProductId] = useState<number | null>(null);
 
-  const fetchShippingFee = async (productId: number) => {
+  
+  
+  
+  const fetchFees = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('Product')
-        .select('shipfee, shopId')
-        .eq('id', productId)
-        .single();
+      const newFees: { [productId: number]: number } = {}; // Object to hold the fees for each product
   
-      if (error) {
-        console.error('Error fetching shipping fee:', error);
-      } else {
-        setShippingFees(prev => ({
-          ...prev,
-          [productId]: data.shipfee,
-        }));
-        if (data.shipfee) {
-          const defaultShipping = Object.keys(data.shipfee)[0];  
-          setSelectedShipping(prev => ({
-            ...prev,
-            [productId]: defaultShipping,
-          }));
+      // Loop through each item in the cart
+      for (const item of cart) {
+        const productId = item.productId;
+  
+        try {
+          // Fetch product data from the Product table
+          const { data: productData, error: productError } = await supabase
+            .from("Product")
+            .select("shopId, Weight, price")
+            .eq("id", productId)
+            .single();
+
+          console.log(productData);
+  
+          if (productError || !productData) {
+            console.error(`Failed to fetch product data for product ID ${productId}`);
+            newFees[productId] = 0; 
+            continue;
+          }
+  
+          const shopId = productData.shopId;
+          const weight = productData.Weight || 500;
+          const value = productData.price || 0;
+  
+          // Fetch shop data
+          const { data: shopData, error: shopError } = await supabase
+            .from("shop")
+            .select("Quan, Tinh, Phuong, Duong")
+            .eq("id", shopId)
+            .single();
+  
+          if (shopError || !shopData) {
+            console.error(`Failed to fetch shop data for shop ID ${shopId}`);
+            newFees[productId] = 0; 
+            continue;
+          }
+  
+          const { data: customerData, error: customerError } = await supabase
+            .from("Khachhang")
+            .select("Quan, Tinh, Phuong, Duong, address")
+            .eq("MaKH", maKH)
+            .single();
+  
+          if (customerError || !customerData) {
+            console.error(`Failed to fetch customer data for customer ID ${maKH}`);
+            newFees[productId] = 0; 
+            continue;
+          }
+
+          const body = {
+            pick_province: shopData.Tinh,
+            pick_district: shopData.Quan,
+            province: customerData.Tinh,
+            district: customerData.Quan,
+            address: customerData.Duong,
+            weight: weight,
+            value: value,
+            transport: 'road',  
+            deliver_option: 'none',
+            tags: [] 
+          };
+  
+          // Get the shipment fee
+          const shipmentFee = await getShipmentFee(body);
+
+          console.log(`Shipment fee for product ${productId}:`, shipmentFee);
+  
+          // Handle the shipment fee response
+          if (shipmentFee && shipmentFee.fee) {
+            const extractedFee = shipmentFee.fee.fee; // Extract the first fee
+            newFees[productId] = extractedFee;
+          } else {
+            console.warn(`No shipment fee found for product ID ${productId}`);
+            newFees[productId] = 0; // Set default fee (0) if no fee is returned
+          }
+  
+        } catch (error) {
+          console.error(`Error calculating shipment fee for product ID ${productId}:`, error);
+          newFees[productId] = 0; // Use default fee (0) in case of any error
         }
       }
-    } catch (err) {
-      console.error('Unexpected error fetching shipping fee:', err);
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    cart.forEach(item => {
-      fetchShippingFee(item.productId);
-    });
-  }, [cart]);
-
   
+      // Set the final shipping fees
+      setShippingFees(newFees);
+      console.log(newFees);  // Log the final fees for debugging
+  
+    } catch (error) {
+      console.error("Error calculating shipment fees:", error);
+    } finally {
+      setIsLoading(false);  // Stop loading
+    }
+  };
+  
+  
+  useEffect(() => {
+    fetchFees();
 
+  }, [cart]);
+  
   const handlePaymentMethodSelect = (method: string) => {
     setPaymentMethod(method);
     setIsDropdownVisible(false);
   };
 
-  const extractNumericShippingFee = (shipfee: string) => {
-    const numericValue = shipfee.replace(/[^\d]/g, ''); 
-    return parseInt(numericValue, 10);
+  const extractNumericShippingFee = (shipfeeData: any): number => {
+  
+    if (typeof shipfeeData === 'number') {
+      return shipfeeData;  
+    }
+
+    if (!shipfeeData || !shipfeeData.fee || !shipfeeData.fee.fee) {
+      console.log('No fee property found:', shipfeeData);
+      return 0;  
+    }
+
+    return shipfeeData.fee.fee;
   };
+  
 
   const generateRandomString = async (length = 11) => {
   
@@ -96,49 +176,39 @@ export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) 
   
 
   const totalSelectedShipfee = cart.reduce((total, item) => {
-    const productShippingFee = shippingFees[item.productId]?.[selectedShipping[item.productId]];
-    return total + (productShippingFee ? extractNumericShippingFee(productShippingFee) : 0);
+    const productShippingFee = shippingFees[item.productId];
+    return total + extractNumericShippingFee(productShippingFee);
   }, 0);
 
   const finalTotal = totalCost + totalSelectedShipfee;
 
-  const openModal = (productId: number) => {
-    setCurrentProductId(productId);
-    setModalVisible(true);
-  };
-
-  const handleSelectShipping = (method: string) => {
-    if (currentProductId !== null) {
-      setSelectedShipping((prev) => ({
-        ...prev,
-        [currentProductId]: method,
-      }));
-    }
-    setModalVisible(false);
-  };
 
   const handleOrder = async () => {
     setIsLoading(true);
 
     try{
-      
-      const orderId = await generateRandomString();
+
       const ordertime = new Date().toISOString();
 
-      const orders = cart.map((item) => ({
-        MaKH: maKH,
-        shopId: item.shopId,
-        productID: item.productId,
-        quantity: item.quantity,
-        shipfee: extractNumericShippingFee(shippingFees[item.productId]?.[selectedShipping[item.productId]] || null),
-        address,
-        ordertime,
-        updatetime: ordertime,
-        paymentMethod,
-        status: 'Đợi xác nhận', 
-        totalCost: item.price*item.quantity,
-        order_id: orderId,
-      }));
+      const orders = await Promise.all(
+        cart.map(async (item) => {
+          const orderId = await generateRandomString();  
+          return {
+            MaKH: maKH,
+            shopId: item.shopId,
+            productID: item.productId,
+            quantity: item.quantity,
+            shipfee: extractNumericShippingFee(shippingFees[item.productId]),
+            address,
+            ordertime,
+            updatetime: ordertime,
+            paymentMethod,
+            status: 'Đợi xác nhận', 
+            totalCost: item.price * item.quantity,
+            order_id: orderId, 
+          };
+        })
+      );
 
       const totalCost1 = cart.reduce((total, item) => {
         return total + (item.price * item.quantity);
@@ -168,7 +238,15 @@ export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) 
         navigation.navigate('AfterOrder', {MaKH: Number(maKH)});
       }
       else{
-        navigation.navigate('Payment',{totalCost: totalCost1, maKH: maKH});
+        navigation1.navigate('Payment', {
+          totalCost: totalCost1,
+          maKH: maKH,
+          orders: orders.map(item => ({
+            productId: item.productID,
+            quantity: item.quantity,
+            order_id: item.order_id,
+          }))
+        });
       }
 
     }catch(error){
@@ -195,18 +273,14 @@ export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) 
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.price}>{formatPrice.format(item.price)}</Text>
               <Text style={styles.quantity}>Số lượng: {item.quantity}</Text>
-
               {isLoading ? (
-                <ActivityIndicator size="large" color="#111111" />
+                <ActivityIndicator size="large" color="#111111"/>
+              ) : shippingFees[item.productId] ? (
+                <Text style={styles.shippingFeeContainer}>
+                  Phí vận chuyển: {formatPrice.format(extractNumericShippingFee(shippingFees[item.productId]))}
+                </Text>
               ) : (
-                shippingFees[item.productId] && (
-                  <TouchableOpacity style={styles.dropdownButton} onPress={() => openModal(item.productId)}>
-                    <Text style={styles.dropdownText}>
-                      {selectedShipping[item.productId]   || 'Chọn phương thức vận chuyển'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#333" />
-                  </TouchableOpacity>
-                )
+                <Text style={styles.shippingFeeContainer}>Đang tính phí vận chuyển...</Text>
               )}
             </View>
           </View>
@@ -214,31 +288,7 @@ export default function OrderScreen({ route }: { route: OrderScreenRouteProp }) 
 
       </ScrollView>
 
-      <Modal animationType="fade" transparent={true} visible={modalVisible}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-          {currentProductId !== null && shippingFees[currentProductId] ? (
-          Object.keys(shippingFees[currentProductId]).map((item) => (
-            <TouchableOpacity 
-            key={item} 
-            style={styles.dropdownItem} 
-            onPress={() => handleSelectShipping(item)}
-            >
-              <Text style={styles.dropdownText}>
-                {item}: {shippingFees[currentProductId][item]}
-              </Text>
-              {selectedShipping[currentProductId] === item && (
-              <Ionicons name="checkmark" size={20} color="green" />
-            )}
-            </TouchableOpacity>
-          ))
-        ) : null}
-            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.closeButtonText}>Hủy</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      
 
       <View style={styles.paymentCard}>
         <View style={styles.summaryRow}>
@@ -356,7 +406,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   shippingFeeContainer: {
-    marginTop: 10,
+    marginTop: 5,
   },
   shippingMethod: {
     flexDirection: 'row',

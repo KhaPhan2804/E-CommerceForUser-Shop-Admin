@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const paymentId = url.pathname.split("/").pop(); // Extract paymentId from the URL
+  const paymentId = url.pathname.split("/").pop(); 
 
   if (!paymentId) {
     return new Response(

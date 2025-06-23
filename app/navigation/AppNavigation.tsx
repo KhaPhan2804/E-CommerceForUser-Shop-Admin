@@ -42,8 +42,14 @@ import SearchShop from '../shop/SearchShop';
 import SearchShopProduct from '../shop/SearchShopProduct';
 import ShopSale from '../shop/ShopSale';
 import PaymentConfirm from '../screens/PaymentConfirm';
-import PaymentAccept from '../screens/PaymentAccept';
 import PaymentCancel from '../screens/PaymentCancel';
+import ChatScreen from '../screens/ChatScreen';
+import ResponseCustomer from '../shop/ResponseCustomer';
+import ResponseBox from '../shop/ResponseBox';
+import ChatTotal from '../screens/ChatTotal';
+import ChatBox from '../screens/ChatBox';
+import ProductDetail from '../admin/ProductDetail';
+import AdminDetail from '../admin/AdminDetail';
 
 const Stack = createNativeStackNavigator<ParamList>();
 
@@ -89,8 +95,14 @@ export default function AppNavigation() {
       <Stack.Screen name="SearchShopProduct" component={SearchShopProduct}/>
       <Stack.Screen name="ShopSale" component={ShopSale}/>
       <Stack.Screen name="Payment" component={PaymentConfirm}/>
-      <Stack.Screen name="PaymentAccept" component={PaymentAccept}/>
       <Stack.Screen name="PaymentCancel" component={PaymentCancel}/>
+      <Stack.Screen name="Chat" component={ChatScreen}/>
+      <Stack.Screen name="ChatTotal" component={ChatTotal}/>
+      <Stack.Screen name="ChatBox" component={ChatBox}/>
+      <Stack.Screen name="Response" component={ResponseCustomer}/>
+      <Stack.Screen name="ResponseBox" component={ResponseBox}/>
+      <Stack.Screen name="AdminProductDetail" component={ProductDetail}/>
+      <Stack.Screen name="AdminUserDetail" component={AdminDetail}/>
     </Stack.Navigator>
   )
 }

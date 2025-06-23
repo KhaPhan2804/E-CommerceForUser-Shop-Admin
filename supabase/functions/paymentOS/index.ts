@@ -1,12 +1,12 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"; 
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const PAYOS_API_URL = "https://api-merchant.payos.vn/v2/payment-requests";
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID");
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY");
-const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY"); 
+const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY");
 
-const YOUR_DOMAIN = "myapp://payment-success"; 
-const CANCEL_URL = "myapp://payment-success";
+const YOUR_DOMAIN = "https://1dd7-2001-ee0-4d45-7a30-41f2-8377-b2f6-ca16.ngrok-free.app";  // This should be your deep link scheme
+
 
 interface PaymentData {
   orderCode: number;
@@ -15,7 +15,7 @@ interface PaymentData {
   items: Array<{ name: string; quantity: number; price: number }>;
   returnUrl: string;
   cancelUrl: string;
-  signature?: string; 
+  signature?: string;
 }
 
 
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
   const body = await req.json();
   console.log("Request body:", body);
 
+  // Declare and initialize paymentData before usage
   const paymentData: PaymentData = {
     orderCode: Number(String(Date.now()).slice(-6)),
     amount: body.amount || 10000,
@@ -73,11 +74,10 @@ Deno.serve(async (req) => {
         price: 10000,
       },
     ],
-    returnUrl: YOUR_DOMAIN,
-    cancelUrl: CANCEL_URL,
+    returnUrl: `${YOUR_DOMAIN}/payment-success?success=true&orderCode=${Date.now()}`,  // Use the current order code
+    cancelUrl: `${YOUR_DOMAIN}/payment-cancel?success=false&orderCode=${Date.now()}`,  // Use the current order code
   };
 
- 
   try {
     paymentData.signature = await generateSignature(paymentData);
   } catch (error) {

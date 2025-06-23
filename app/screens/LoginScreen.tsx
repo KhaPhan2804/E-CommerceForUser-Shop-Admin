@@ -61,7 +61,7 @@ export default function LoginScreen() {
       );
       if (userData.roleID === 1) {
         navigation.navigate('Main');
-      } else if (userData.roleID === 2) {
+      } else if (userData.roleID === 2 || userData.roleID === 3) {
         navigation.navigate('Admin'); 
       } else {
         setError('Vai trò người dùng không xác định.');
@@ -136,6 +136,7 @@ const style = StyleSheet.create({
   titleContainer: {
     alignItems: 'center',
     marginBottom: 20,
+    
   },
   icon: {
     width: 90,

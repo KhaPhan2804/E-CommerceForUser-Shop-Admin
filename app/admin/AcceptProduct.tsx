@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import supabase from '../database/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
-import ParamList from '../navigation/Data';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ParamList from '../navigation/Data';
 
 type navigationProp = NativeStackNavigationProp<ParamList, 'AdminProductDetail'>;
-
-
 
 interface Product {
   id: number;
@@ -26,7 +24,7 @@ interface Category {
   image: string;
 }
 
-const ProductAdmin = () => {
+const AcceptProduct = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +38,7 @@ const ProductAdmin = () => {
   const getFormattedRating = (rating: string) => {
     const numericRating = parseFloat(rating);
     return numericRating > 5 ? 5 : numericRating;
-  }
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -50,7 +48,7 @@ const ProductAdmin = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('Product').select('*');
+      const { data, error } = await supabase.from('Product').select('*').eq('status', 'Pending');
       if (error) throw error;
       setProducts(data || []);
     } catch (error) {
@@ -62,16 +60,12 @@ const ProductAdmin = () => {
   };
 
   const fetchCategories = async () => {
-    setIsLoading(true);
     try {
       const { data, error } = await supabase.from('Category').select('*');
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      Alert.alert('Error fetching categories', errorMessage);
-    } finally {
-      setIsLoading(false);
+      Alert.alert('Error fetching categories', String(error));
     }
   };
 
@@ -80,35 +74,31 @@ const ProductAdmin = () => {
     return category ? category.name : 'No category';
   };
 
-  
-
-  const handleReportViolation = async (productId: number) => {
+  const handleApproveProduct = async (productId: number) => {
     try {
       const { error } = await supabase
         .from('Product')
-        .update({ status: 'Violate' })
+        .update({ status: 'Instock' })
         .eq('id', productId);
-  
+
       if (error) throw error;
-  
-      Alert.alert('Đã báo cáo', `Sản phẩm ID ${productId} đã được đánh dấu là vi phạm.`);
-      fetchProducts(); 
+
+      Alert.alert('Thành công', `Sản phẩm ID ${productId} đã được duyệt.`);
+      fetchProducts();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      Alert.alert('Lỗi khi cập nhật trạng thái vi phạm', errorMessage);
+      Alert.alert('Lỗi khi duyệt sản phẩm', errorMessage);
     }
   };
-
-  if (isLoading) {
-    return <ActivityIndicator size="large" color="#111111" style={styles.loadingIndicator} />;
-  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Ionicons name="arrow-back" size={24} color="#333" onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>Quản lý sản phẩm</Text>
+        <Text style={styles.headerTitle}>Duyệt sản phẩm</Text>
       </View>
+
+      {isLoading && <ActivityIndicator size="large" color="#111111" style={styles.loadingIndicator} />}
 
       <View style={styles.productsContainer}>
         {products.map((product) => (
@@ -119,7 +109,7 @@ const ProductAdmin = () => {
               <Text>{product.detail}</Text>
               <Text>Giá: {formatPrice.format(parseFloat(product.price))}</Text>
               <Text>Đánh giá: {getFormattedRating(product.rating)}
-                <Ionicons name="star-outline" size={12} color="#FFD700"/>
+                <Ionicons name="star-outline" size={12} color="#FFD700" />
               </Text>
               <Text>Danh mục: {getCategoryNameById(product.productCategory)}</Text>
             </View>
@@ -131,10 +121,10 @@ const ProductAdmin = () => {
                 <Text style={styles.buttonText}>XEM CHI TIẾT</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                onPress={() => handleReportViolation(product.id as number)} 
-                style={[styles.button, styles.reportViolation]}
+                onPress={() => handleApproveProduct(product.id)} 
+                style={[styles.button, styles.approveProduct]}
               >
-                <Text style={styles.buttonText}>CẢNH BÁO VI PHẠM</Text>
+                <Text style={styles.buttonText}>DUYỆT SẢN PHẨM</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -149,7 +139,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F9F9F9',
   },
-  
   loadingIndicator: {
     marginBottom: 16,
   },
@@ -214,16 +203,15 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   viewDetails: {
-    backgroundColor: '#2196F3',  
+    backgroundColor: '#2196F3',
   },
-  reportViolation: {
-    backgroundColor: '#FF9800',  
+  approveProduct: {
+    backgroundColor: '#4CAF50',
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 12,
   },
 });
 
-export default ProductAdmin;
+export default AcceptProduct;

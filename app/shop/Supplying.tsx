@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { ParamList } from '../navigation/Data';
 import supabase from '../database/supabase';
+import { createShipmentWithGHTK } from '../database/GHTK'
+
 
 type PendingRouteProp = RouteProp<ParamList, 'AcceptPending'>;
 
@@ -91,10 +93,32 @@ export default function Supplying() {
 
   const confirmOrder = async (orderId: number, productId: number, quantity: number) => {
     try {
+
+      const { data: order, error: orderFetchError } = await supabase
+      .from('Donhang')
+      .select('*')
+      .eq('id', orderId)
+      .single();
+
+      if (orderFetchError || !order) {
+        console.error('Không lấy được đơn hàng:', orderFetchError);
+        return;
+      }
+
+      const { data: customer, error: customerError } = await supabase
+      .from('Khachhang')
+      .select('*')
+      .eq('MaKH', order.MaKH)
+      .single();
+
+      if (customerError || !customer) {
+      console.error('Không lấy được thông tin người nhận:', customerError);
+      return;
+      }
       
       const { data: product, error: fetchError } = await supabase
         .from('Product')
-        .select('Stock, Sold, status')
+        .select('Stock, Sold, status, name, Weight')
         .eq('id', productId)
         .single();
   
@@ -103,10 +127,8 @@ export default function Supplying() {
         return;
       }
   
-      const currentStock = product.Stock;
-      const currentSold = product.Sold || 0; 
-      const newStock = currentStock - quantity;
-      const newSold = currentSold + quantity;
+      const newStock = product.Stock - quantity;
+      const newSold = (product.Sold || 0) + quantity;
 
       const updates: { Stock: number; Sold: number; status?: string } = { 
         Stock: newStock, 
@@ -123,7 +145,7 @@ export default function Supplying() {
         .eq('id', productId);
   
       if (updateError) {
-        console.error('Error updating product stock and sold:', updateError);
+        console.error('Lỗi khi cập nhật kho:', updateError);
         return;
       }
 
@@ -131,10 +153,46 @@ export default function Supplying() {
         .from('Donhang')
         .update({ status: 'Hàng đang được giao' })
         .eq('id', orderId);
+
+      
   
       if (orderError) {
         console.error('Error updating order status:', orderError);
       } else {
+        const total = order.totalCost + order.shipfee;
+        const shipmentData = {
+          order: {
+            id: order.order_id,
+            pick_name: "Tên Shop Test",
+            pick_address: "Địa chỉ shop Test",
+            pick_province: "Khanh Hoa",
+            pick_district: "Nha Trang",
+            pick_tel: "0123456789",
+            name: customer.name,
+            address: customer.Duong,
+            province: customer.Tinh,
+            district: customer.Quan,
+            ward: customer.Phuong,
+            tel: customer.phone,
+            hamlet: "Khác",
+            is_freeship: "1",
+            pick_money: 0,
+            value: total,
+          },
+          products: [
+            {
+              name: product.name,
+              weight: product.Weight || 0, 
+              quantity: quantity,
+            },
+          ],
+        };
+        const result = await createShipmentWithGHTK(shipmentData);
+        if (!result.success) {
+          console.error('Failed to create shipment:', result);
+          return;
+        }
+        console.log('Shipment created successfully:', result);
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
             order.id === orderId ? { ...order, status: 'Hàng đang được giao' } : order
@@ -146,7 +204,6 @@ export default function Supplying() {
       console.error('Unexpected error confirming order:', error);
     }
   };
-  
   
 
   const renderOrderCard = (item: Orders) => {

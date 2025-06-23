@@ -37,6 +37,7 @@ export default function CartScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [shopId, setShopIds] = useState<Record<number, number>>({}); 
   const [stockQuantities, setStockQuantities] = useState<Record<number, number>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
 
   const isCartEmpty = cartItems.length === 0;
 
@@ -48,9 +49,12 @@ export default function CartScreen() {
           const { data: session, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError || !session?.session?.user) {
-            console.error('Error fetching session or user not authenticated');
+            setIsLoggedIn(false);
+            setIsLoading(false);
             return;
           }
+
+          setIsLoggedIn(true);
 
           const userId = session.session.user.id;
 
@@ -138,7 +142,7 @@ export default function CartScreen() {
     try {
       if (newQuantity < 1) return;
   
-      const maxStock = stockQuantities[productId] || 20; // Default max limit if stock is not available
+      const maxStock = stockQuantities[productId] || 20; 
   
       if (newQuantity > maxStock) {
         newQuantity = maxStock;
@@ -246,7 +250,17 @@ export default function CartScreen() {
         <Text style={style.headerTitle}>Giỏ hàng</Text>
       </View>
 
-      {isLoading ? (
+
+      
+      {!isLoggedIn ? (
+      <View style={style.isNotLogin}>
+        <Text style={style.isNotLoginText}>Đăng nhập để mua sắm</Text>
+        <TouchableOpacity style={style.cardContent} onPress={() => navigation.navigate('Login')}>
+          <Ionicons name="log-in-outline" size={24} color="black" />
+          <Text style={style.buttonText}>Đăng nhập</Text>
+        </TouchableOpacity>
+      </View>
+      ) : isLoading ? (
         <View style={style.loadingContainer}>
           <ActivityIndicator size="large" color="#111111" />
         </View>
@@ -508,5 +522,25 @@ const style = StyleSheet.create({
     fontSize: 20,
     color: '#333',
     marginBottom: 20,
+  },
+  isNotLogin:{ 
+    flex: 1, 
+    justifyContent: 'center',
+    alignItems: 'center' ,
+    
+  },
+  isNotLoginText:{
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    marginBottom: 12 
+  },
+  buttonText: {
+    color: '#0066FF', 
+    fontSize: 16,
+    fontWeight: '600', 
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

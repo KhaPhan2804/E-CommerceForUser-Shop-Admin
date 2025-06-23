@@ -3,8 +3,25 @@ export type ParamList = {
     Cart: undefined,
     Delivery:undefined,
     Shop:undefined,
-    PaymentAccept:undefined,
-    PaymentCancel:undefined,
+    ChatTotal: undefined,
+    ChatBox: {
+        room_id: number;
+        MaKH: number;
+    },
+    Chat:{
+        shop_id: number;
+        room_id: number;
+    },
+    Response:{
+        shop_id: number;
+    }
+    ResponseBox:{
+        shop_id: number;
+        room_id: number;
+    }
+    PaymentCancel:{
+        order_id: string[];
+    },
     AfterOrder:{
         MaKH: number,
     },
@@ -123,6 +140,17 @@ export type ParamList = {
     Payment:{
         totalCost: number;
         maKH: string;
+        orders: {
+            productId: number;
+            quantity: number;
+            order_id: string;
+        }[];
     },
+    AdminProductDetail:{
+        id: number;
+    }
+    AdminUserDetail:{
+        userId: string;
+    }
 };
 export default ParamList;

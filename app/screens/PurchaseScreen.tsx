@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import supabase from '../database/supabase';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Crypto from 'expo-crypto';
+import { getShipmentFee } from '../database/GHTK'
 
 
 type PurchaseRoute = RouteProp<ParamList, 'Purchase'>;
@@ -38,56 +39,92 @@ export default function PurchaseScreen({ route }: { route: PurchaseRoute }) {
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [shopID, setShopID] = useState<number>(0);
-  const [shippingFees, setShippingFees] = useState<{ [key: string]: number }>({});
-  const [selectedShippingMethod, setSelectedShippingMethod] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [shippingFee, setShippingFee] = useState<number | null>(null);
+  
 
   const navigation = useNavigation<navigationProp>();
 
   const handlePaymentMethodSelect = (method: string) => {
     setPaymentMethod(method);
     setIsDropdownVisible(false);
-  };
+  }
 
-  const fetchShippingFee = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('Product')
-        .select('shipfee, shopId')
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching shipping fee:', error);
-      } else {
-        setShopID(data.shopId);
-        const formattedShipFees = Object.fromEntries(
-          Object.entries(data.shipfee || {}).map(([method, fee]) => [
-            method.trim(), 
-            parseInt(String(fee).replace(/\D/g, ''), 10) 
-          ])
-        );
-        setShippingFees(formattedShipFees);
-        
-        if (Object.keys(formattedShipFees).length > 0) {
-          setSelectedShippingMethod(Object.keys(formattedShipFees)[0]);
-        }
-      }
-    } catch (err) {
-      console.error('Unexpected error fetching shipping fee:', err);
-    }
-    setIsLoading(false);
-  };
 
   useEffect(() => {
+    const fetchShippingFee = async () => {
+      setIsLoading(true);
+  
+      try {
+        const { data: session, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session?.session?.user) {
+          console.error('Session error:', sessionError);
+          return;
+        }
+  
+        const userId = session.session.user.id;
+  
+        const { data: customerData, error: customerError } = await supabase
+          .from('Khachhang')
+          .select('MaKH, Quan, Tinh, Phuong, Duong')
+          .eq('userID', userId)
+          .single();
+  
+        if (customerError || !customerData) {
+          console.error('Customer fetch error:', customerError);
+          return;
+        }
+  
+        const { data: productData, error: productError } = await supabase
+          .from('Product')
+          .select('shopId, Weight, price')
+          .eq('id', id)
+          .single();
+  
+        if (productError || !productData) {
+          console.error('Product fetch error:', productError);
+          return;
+        }
+  
+        const { data: shopData, error: shopError } = await supabase
+          .from('shop')
+          .select('Quan, Tinh, Phuong, Duong')
+          .eq('id', productData.shopId)
+          .single();
+  
+        if (shopError || !shopData) {
+          console.error('Shop fetch error:', shopError);
+          return;
+        }
+  
+        const body = {
+          pick_province: shopData.Tinh,
+          pick_district: shopData.Quan,
+          province: customerData.Tinh,
+          district: customerData.Quan,
+          address: customerData.Duong,
+          weight: productData.Weight || 500,
+          value: productData.price || 0,
+          transport: 'road',
+          deliver_option: 'none',
+          tags: [],
+        };
+  
+        const fee = await getShipmentFee(body);
+        console.log('GHTK Fee Response:', fee);
+        if (fee) {
+          setShippingFee(fee.fee.fee);
+          setShopID(productData.shopId);
+        }
+      } catch (err) {
+        console.error('Shipping fee error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
     fetchShippingFee();
-  }, [id]);
-
-  const handleSelectShipping = (method: string) => {
-    setSelectedShippingMethod(method);
-    setModalVisible(false);
-  };
+  }, []);
+  
 
   const handleConfirmPurchase = async () => {
     
@@ -112,10 +149,6 @@ export default function PurchaseScreen({ route }: { route: PurchaseRoute }) {
         return;
       }
 
-      if (!selectedShippingMethod || !shippingFees[selectedShippingMethod]) {
-        Alert.alert("Lỗi", "Vui lòng chọn phương thức vận chuyển.");
-        return;
-      }
 
       const orderData = {
         MaKH: customerData.MaKH,
@@ -128,7 +161,7 @@ export default function PurchaseScreen({ route }: { route: PurchaseRoute }) {
         address: customerData.address,
         ordertime: new Date().toISOString(),
         updatetime: new Date().toISOString(),
-        shipfee: shippingFees[selectedShippingMethod],
+        shipfee: shippingFee,
         order_id: orderId,
       };
 
@@ -147,7 +180,21 @@ export default function PurchaseScreen({ route }: { route: PurchaseRoute }) {
 
       if (paymentMethod === 'Thanh toán khi nhận hàng') {
         navigation.navigate('AfterOrder', {MaKH});
+      }else{
+        navigation.navigate('Payment', {
+          maKH: MaKH,
+          totalCost: price * quantity,
+          orders: [
+            {
+              productId: id,
+              quantity,
+              order_id: orderId,
+            }
+          ],
+        });
       }
+
+      
     } catch (e) {
       console.error('Unexpected error during purchase:', e);
       Alert.alert('Lỗi', 'Đã xảy ra lỗi. Vui lòng thử lại.');
@@ -169,57 +216,29 @@ export default function PurchaseScreen({ route }: { route: PurchaseRoute }) {
           <Text style={styles.name}>{name}</Text>
           <Text style={styles.price}>Giá: {formatPrice.format(price)}</Text>
           <Text style={styles.quantity}>Số lượng: {quantity}</Text>
-
-          {isLoading ? (
-            <ActivityIndicator size="large" color="#111111" />
-          ) : (
-            <TouchableOpacity style={styles.dropdownButton} onPress={() => setModalVisible(true)}>
-              <Text style={styles.dropdownText}>
-                {selectedShippingMethod ? `${selectedShippingMethod}: ${formatPrice.format(shippingFees[selectedShippingMethod])}` : 'Chọn phương thức vận chuyển'}
-                
-              </Text>
-              <Ionicons name="chevron-down" size={20} color="#333" />
-            </TouchableOpacity>
-          )}
+          <Text style={styles.totalCost}>
+            {shippingFee !== null ? formatPrice.format(shippingFee) : 'Không có phí vận chuyển'}
+          </Text>
         </View>
       </View>
 
-      <Modal animationType="fade" transparent={true} visible={modalVisible}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {Object.keys(shippingFees).map((method) => (
-              <TouchableOpacity 
-                key={method} 
-                style={styles.dropdownItem} 
-                onPress={() => handleSelectShipping(method)}
-              >
-                <Text style={styles.dropdownText}>
-                  {method}: {formatPrice.format(shippingFees[method])}
-                </Text>
-                {selectedShippingMethod === method && (
-                  <Ionicons name="checkmark" size={20} color="green" />
-                )}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.closeButtonText}>Hủy</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      
 
       <View style={styles.paymentCard}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Tổng:</Text>
-          <Text style={styles.totalCost}>{formatPrice.format(price * quantity)}</Text>
+          <Text style={styles.totalCost}>{formatPrice.format((price * quantity))}</Text>
+          
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Phí vận chuyển:</Text>
-          <Text style={styles.totalCost}>{selectedShippingMethod ? formatPrice.format(shippingFees[selectedShippingMethod]) : 'Chưa chọn'}</Text>
-        </View>
+          <Text style={styles.totalCost}>
+          {shippingFee !== null ? formatPrice.format(shippingFee) : 'Không có phí vận chuyển'}
+          </Text>
+          </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>Tổng chi phí:</Text>
-          <Text style={styles.totalCost}>{selectedShippingMethod ? formatPrice.format((price * quantity) + shippingFees[selectedShippingMethod]) : 'Chưa chọn'}</Text>
+          <Text style={styles.totalCost}>{shippingFee !== null ? formatPrice.format((price * quantity)+ shippingFee ) : 'Không có phí vận chuyển'}</Text>
         </View>
 
         <View style={styles.summaryRow}>

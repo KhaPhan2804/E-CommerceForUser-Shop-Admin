@@ -9,8 +9,6 @@ import { Checkbox } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 
-
-
 type AddProductRouteProp = RouteProp<ParamList, 'AddProduct'>;
 
 
@@ -20,20 +18,12 @@ type Category = {
   image: string;
 }
 
-type Ship = {
-  id: number;
-  name: string;
-  basicFee: number;
-  weightLimit : number;
-}
-
 
 export default function AddProduct() {
   const navigation = useNavigation();
   const route = useRoute<AddProductRouteProp>();
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [shipMethod, setShipMethod] = useState<Ship[]>([]);
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -67,24 +57,7 @@ export default function AddProduct() {
     }
   };
 
-  const fetchShippingMethod = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('shippingmethod')
-        .select('*'); 
-
-      if (error) {
-        console.error('Error fetching categories:', error.message);
-      } else {
-        setShipMethod(data);
-      }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-    } finally{
-      setIsLoading(false); 
-    }
-  };
+  
 
   const handleProductNameChange = (text: string) => {
     setProductName(text);
@@ -243,16 +216,8 @@ export default function AddProduct() {
 
     const productCategory = selectedCategories.length > 0 ? selectedCategories[0] : null;
 
-    shipMethod.forEach(method => {
-      if (selectedMethods.includes(method.id)) {
-        const fee = calculateShippingFee(method.basicFee, weight);
-        shippingFees[method.name] = formatPrice(fee);
-      }
-    });
+    
 
-    const shippingMethodsArray = shipMethod
-    .filter(method => selectedMethods.includes(method.id))
-    .map(method => ({ id: method.id }));
 
     const imageUrl = await uploadImage(selectedImages[0]);
     const imageProductUrls = await Promise.all(selectedImages.map((img, index) => uploadImage(img)));
@@ -264,7 +229,6 @@ export default function AddProduct() {
       Stock: stock,
       productCategory: productCategory,
       Weight: weight,
-      shippingMethod: shippingMethodsArray,  
       shipfee: shippingFees,  
       image: imageUrl,
       imageProduct: imageProductUrls,
@@ -329,7 +293,7 @@ export default function AddProduct() {
   
   useEffect(() => {
     fetchCategoryData();
-    fetchShippingMethod();
+    
   },[]);
 
   return (
@@ -494,32 +458,6 @@ export default function AddProduct() {
               keyboardType="numeric"
             />
           </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>
-            Phương thức vận chuyển <Text style={styles.requiredStar}>*</Text>
-          </Text>
-            {shipMethod.map((method) => (
-              <View key={method.id} style={styles.shippingMethodCard}>
-                <View style={styles.shippingMethodContent}>
-                  <Text style={styles.methodText}>{method.name} (&lt;= {method.weightLimit}g)</Text>
-                  <View style={styles.toggleContainer}>
-                    {weight > 0 &&weight <= method.weightLimit && selectedMethods.includes(method.id) &&(
-                      <Text style={styles.shippingFee}>
-                        {formatPrice(calculateShippingFee(method.basicFee, weight))}
-                      </Text>
-                    )}
-                    {weight > 0 && weight<= method.weightLimit && (
-                      <Switch
-                        value={selectedMethods.includes(method.id)}
-                        onValueChange={() => handleToggle(method.id)}
-                      />
-                    )}
-                  </View>
-                </View>
-              </View>
-            ))}
         </View>
 
       <TouchableOpacity style={styles.addButton} onPress={handleSave}>

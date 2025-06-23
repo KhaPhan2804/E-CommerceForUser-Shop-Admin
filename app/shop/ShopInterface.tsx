@@ -31,6 +31,13 @@ type Category = {
   image: string;
 };
 
+type ChatRoom = {
+  id: number;
+  shop_id: number;
+  user_id: number;
+  created_at: string;
+};
+
 export default function ShopInterface() {
   const navigation = useNavigation<navigationProp>();
   const route = useRoute<ShopInterfaceRouteProp>();
@@ -136,39 +143,25 @@ export default function ShopInterface() {
 
   const fetchShopData = async () => {
     setIsLoading(true);
-    const { data: session, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    const userId = session?.session?.user?.id;
-    if (!userId) {
-      Alert.alert('Lỗi', 'Bạn cần đăng nhập để theo dõi cửa hàng.');
-      return;
-    }
-
-    const maKH = await getMaKHFromUserId(userId);
-    if (!maKH) {
-      Alert.alert('Lỗi', 'Không thể lấy MaKH.');
-      return;
-    }
-
+  
     const { data: shopProfile, error: shopProfileError } = await supabase
-    .from('shop')
-    .select('*')
-    .eq('id', idShop)
-    .single();
-
+      .from('shop')
+      .select('*')
+      .eq('id', idShop)
+      .single();
+  
     if (shopProfileError) {
       console.log('Error fetching shop data:', shopProfileError.message);
       setIsLoading(false);
       return;
     }
-
+  
     const { data: banners, error: bannersError } = await supabase
-    .from('shopbanners')
-    .select('*')
-    .eq('shop_id', idShop)
-    .single();
-
+      .from('shopbanners')
+      .select('*')
+      .eq('shop_id', idShop)
+      .single();
+  
     if (bannersError) {
       console.log('Error fetching banners:', bannersError.message);
     } else if (banners) {
@@ -176,21 +169,25 @@ export default function ShopInterface() {
       setFootBanner(banners.foot_banner);
       setSelectedImages(banners.body_banner ? banners.body_banner : []);
     }
-    
+  
     if (shopProfile) {
       setShopAvatar(shopProfile.shopavatar);
       setShopName(shopProfile.shopname);
       setFollowers(shopProfile.followers);
       updateShopRating();
-      if (shopProfile.makh === maKH) {
+    }
+
+    const { data: session, error: sessionError } = await supabase.auth.getSession();
+    if (!sessionError && session?.session?.user?.id) {
+      const userId = session.session.user.id;
+      const maKH = await getMaKHFromUserId(userId);
+      if (maKH && shopProfile && shopProfile.makh === maKH) {
         setIsShopOwner(true);
       }
     }
-
-    
-
+  
     setIsLoading(false);
-  }
+  };
 
   const handleSaveBanners = async () => {
     try {
@@ -208,7 +205,7 @@ export default function ShopInterface() {
       .eq('shop_id', idShop)
       .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // Ignore 'no rows' error code
+      if (fetchError && fetchError.code !== 'PGRST116') { 
         console.error('Error fetching banners:', fetchError.message);
         Alert.alert('Lỗi', 'Không thể kiểm tra banner. Vui lòng thử lại.');
         return;
@@ -218,7 +215,7 @@ export default function ShopInterface() {
       const { error } = await supabase
         .from('shopbanners')
         .update(updates)
-        .eq('shop_id', idShop); // Update based on shop_id
+        .eq('shop_id', idShop); 
         
       if (error) {
         console.error('Error updating banners:', error.message);
@@ -228,10 +225,10 @@ export default function ShopInterface() {
       
       Alert.alert('Thành công', 'Ảnh đã được cập nhật!');
     } else {
-      // If no banners exist, perform upsert to insert
+      
       const { error } = await supabase
         .from('shopbanners')
-        .upsert(updates); // Ensure upsert happens based on shop_id
+        .upsert(updates); 
         
       if (error) {
         console.error('Error saving banners:', error.message);
@@ -256,7 +253,7 @@ export default function ShopInterface() {
   
       const userId = session?.session?.user?.id;
       if (!userId) {
-        Alert.alert('Lỗi', 'Bạn cần đăng nhập để theo dõi cửa hàng.');
+        Alert.alert('Thông báo', 'Bạn cần đăng nhập để theo dõi cửa hàng.');
         return;
       }
   
@@ -326,6 +323,50 @@ export default function ShopInterface() {
       console.error('Error fetching follow status:', err);
     }
   };
+
+  const CNCChatRoom = async (idShop: number) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      if (!userId) return;
+  
+      const maKH = await getMaKHFromUserId(userId);
+      if (!maKH) return;
+
+      const { data, error } = await supabase
+        .from('chat_rooms')  
+        .select('id')  
+        .eq('shop_id', idShop)
+        .eq('user_id', maKH)
+        .single();  
+  
+      if (error) {
+        if (error.code === 'PGRST116') {  
+          const { data: newRoomData, error: roomCreationError } = await supabase
+            .from('chat_rooms') 
+            .insert([{ shop_id: idShop, user_id: maKH, created_at: new Date().toISOString() }])
+            .single(); 
+  
+          if (roomCreationError) {
+            console.log('Error creating chat room:', roomCreationError);
+          } else {
+            if ((newRoomData as ChatRoom)?.id) {
+              navigation.navigate('Chat', { shop_id: idShop, room_id: (newRoomData as ChatRoom).id });
+            }
+          }
+        } else {
+          console.log('Error fetching chat room:', error);
+        }
+      } else if (data) {
+        if (data.id) {
+          navigation.navigate('Chat', { shop_id: idShop, room_id: data.id });
+        }
+      }
+    } catch (error) {
+      console.log('Error in checking or creating chat room:', error);
+    }
+  };
+  
 
   const getMaKHFromUserId = async (userId: string) : Promise<string | null>=> {
       try {
@@ -584,10 +625,21 @@ export default function ShopInterface() {
                 {rating} <Ionicons name="star" size={10} color="#f39c12" />
                 | {followers} Người đang theo dõi
               </Text>
-              <TouchableOpacity style={styles.chatButton}>
+            {!isShopOwner ? (
+              <TouchableOpacity style={styles.chatButton} onPress={async () => {
+                await CNCChatRoom(idShop);  
+              }}>
                 <Ionicons name="chatbox-ellipses-outline" size={15} color="black" />
                 <Text style={styles.chatButtonText}>Chat</Text>
               </TouchableOpacity>
+            ):(
+              <TouchableOpacity style={styles.chatButton} onPress={() => {
+                navigation.navigate('Response', {shop_id:idShop}); 
+              }}>
+                <Ionicons name="chatbox-ellipses-outline" size={15} color="black" />
+                <Text style={styles.chatButtonText}>Trả lời khách hàng</Text>
+              </TouchableOpacity>
+            )}
             </View>
           </View>
         </View>
@@ -962,6 +1014,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginLeft: 1,
+    fontSize: 13,
   },
   tabContainer: {
     flexDirection: 'row',

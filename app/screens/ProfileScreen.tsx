@@ -379,10 +379,16 @@ export default function ProfileScreen() {
         <View style={styles.blankState}>
           <Image source={require('../image/eve.png')} style={styles.blankAvatar} />
           <Text style={styles.message}>Đăng nhập để bắt đầu mua sắm</Text>
-          <View style={styles.card}>
+          <View style={styles.card1}>
             <TouchableOpacity style={styles.cardContent} onPress={() => navigation.navigate('Login')}>
               <Ionicons name="log-in-outline" size={24} color="black" />
               <Text style={styles.buttonText}>Đăng nhập</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.card1}>
+            <TouchableOpacity style={styles.cardContent} onPress={() => navigation.navigate('Register')}>
+              <Ionicons name="download-outline" size={24} color="black" />
+              <Text style={styles.buttonText}>Đăng ký</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -485,6 +491,21 @@ const styles = StyleSheet.create({
     borderWidth: 0.5, 
     borderColor: '#E0E0E0', 
     width: '110%', 
+    alignSelf: 'center',
+  },
+  card1: {
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 12, 
+    padding: 15, 
+    marginVertical: 8, 
+    shadowColor: '#000',
+    shadowOpacity: 0.1, 
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4, 
+    borderWidth: 0.5, 
+    borderColor: '#E0E0E0', 
+    width: '90%', 
     alignSelf: 'center',
   },
   cardContent: {

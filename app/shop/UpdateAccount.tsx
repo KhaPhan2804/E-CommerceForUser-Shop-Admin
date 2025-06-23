@@ -232,7 +232,12 @@ export default function UpdateAccount() {
     console.log("RatingInterface");
   }
   const handleSupport = () => {
-    console.log("RatingInterface");
+    if (idShop === null) {
+      console.error("Error: idShop is null");
+      Alert.alert("Lỗi", "Không tìm thấy ID của shop.");
+      return;
+    }
+    navigation.navigate('Response', { shop_id: idShop }); 
   }
   return (
     <View style={styles.container}>
@@ -329,7 +334,7 @@ export default function UpdateAccount() {
     
                 <TouchableOpacity style={styles.performanceButton} onPress={handleSupport}>
                   <Ionicons name="megaphone-outline" size={20} color="#333" />
-                  <Text style={styles.performanceText}>Hỗ trợ</Text>
+                  <Text style={styles.performanceText}>Trả lời khách hàng</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -46,9 +46,6 @@ export default function ProductSetting() {
   const [price, setPrice] = useState<number>(0);
   const [stock, setStock] = useState<number>(0); 
   const [weight, setWeight] = useState<number>(0);
-  const [shippingMethod, setShippingMethod] = useState('');
-  const [minShippingFee, setMinShippingFee] = useState<number>(0);
-  const [maxShippingFee, setMaxShippingFee] = useState<number>(0);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(true);
   const [imageProduct, setImageProduct] = useState<string[]>([]);
@@ -141,42 +138,7 @@ export default function ProductSetting() {
     navigation.goBack();
   };
 
-  const fetchShipfee = async (productId: number) => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('Product')
-      .select('*')
-      .eq('id', productId)
-      .single();
   
-    if (error) {
-      console.log('Error fetching data: ', error.message);
-    } else {
-      
-      if (data && data.shipfee) {
-        try {
-          const shipfeeJson = data.shipfee as Record<string, string>;
-  
-          const fees: number[] = Object.values(shipfeeJson).map(fee => {
-            const numericValue = fee.replace(/[^0-9.-]+/g, '').replace('.', ''); 
-            return parseFloat(numericValue); 
-          });
-  
-          if (fees.length > 0) {
-            const minFee = Math.min(...fees);
-            const maxFee = Math.max(...fees);
-            setMinShippingFee(minFee);
-            setMaxShippingFee(maxFee);
-            setShippingMethod(data.shippingMethod);
-            setWeight(data.Weight);
-          }
-        } catch (err) {
-          console.error('Error parsing shipfee:', err);
-        }
-      }
-    }
-    setIsLoading(false);
-  };
 
   const fetchImageProduct = async (productId: number) => {
     setIsLoading(true);
@@ -217,7 +179,6 @@ export default function ProductSetting() {
   useFocusEffect(
     React.useCallback(() => {
       fetchProductCategory(productId);
-      fetchShipfee(productId);
     }, [productId]) 
   );
 
@@ -610,30 +571,6 @@ export default function ProductSetting() {
             />
           </View>
         </View>
-
-        <TouchableOpacity style={styles.card}
-        onPress={()=>navigation.navigate('ShippingFee',{productId: productId, weight: weight,
-          shippingMethod: shippingMethod
-          })}
-        >
-          <View style={styles.labelRow}>
-            <Text style={styles.cardLabel}>
-            <Ionicons name="airplane-outline" size={15} color="black"/>
-            Phí vận chuyển
-            <Text style={styles.requiredStar}>*</Text>
-            
-            </Text>
-            <Text style={styles.productCategory}>
-            <Text style={styles.shippingFee}>
-            {minShippingFee !== null && maxShippingFee !== null 
-            ? `${formatPrice(minShippingFee)} - ${formatPrice(maxShippingFee)}`
-            : 'Loading...'}
-            </Text>
-            <Ionicons name="chevron-forward-outline" size={12} color="black" />
-            </Text>
-          </View>
-        </TouchableOpacity>
-
       </ScrollView>
 
       <View style={styles.buttonsContainer}>

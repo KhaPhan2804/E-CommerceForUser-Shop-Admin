@@ -1,7 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Image, StyleSheet, Alert, ScrollView, Button } from 'react-native';
+import { View, Text, Image, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import supabase from '../database/supabase'; // Update this import to your actual Supabase client import
+import supabase from '../database/supabase';
+import { useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 interface OrderItem {
   name: string;
@@ -18,11 +20,11 @@ interface Order {
   paymentMethod: string;
   status: string;
   order_items: OrderItem[];
-  created_at: string;
-  updated_at: string;
+  ordertime: string;
+  updatetime: string;
   address: string;
+  order_id: string;
 }
-
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('de-DE', {
@@ -43,6 +45,7 @@ const formatDate = (dateString: string) => {
 
 export default function DonHangAdmin() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const navigation = useNavigation();
 
   const fetchOrders = async () => {
     try {
@@ -61,24 +64,6 @@ export default function DonHangAdmin() {
     }
   };
 
-  const handleStatusChange = async (orderId: number) => {
-    try {
-      const { error } = await supabase
-        .from('Donhang')
-        .update({ status: 'Đang vận chuyển' })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      Alert.alert('Cập nhật trạng thái', 'Trạng thái đơn hàng đã được cập nhật.');
-
-      fetchOrders();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      Alert.alert('Error updating status', errorMessage);
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
       fetchOrders();
@@ -86,80 +71,128 @@ export default function DonHangAdmin() {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.ordersList}>
-      {orders.map((order) => (
-        <View key={order.id} style={styles.orderContainer}>
-          <Text style={styles.orderTitle}>Order ID: {order.id}</Text>
-          <Text>Trạng thái: {order.status === 'pending' ? 'Đợi xác nhận' : order.status}</Text>
-          <Text>Phương thức thanh toán: {order.paymentMethod}</Text>
-          <Text>Tổng chi phí: {formatPrice(Number(order.totalCost))}</Text> 
-          <Text>Địa chỉ: {order.address}</Text>
-          <Text>Thời gian: {formatDate(order.created_at)}</Text>
+    <View style={styles.container}>
+       <View style={styles.header}>
+        <Ionicons name="arrow-back" size={24} color="#333" onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle}>Đơn Hàng</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.ordersList}>
+        {orders.map((order) => (
+          <View key={order.id} style={styles.orderContainer}>
+            <Text style={styles.orderTitle}>Mã Đơn Hàng: {order.order_id}</Text>
+            <Text style={styles.status}>Trạng thái: {order.status} vào lúc {formatDate(order.updatetime)}</Text>
+            <Text style={styles.text}>Phương thức thanh toán: {order.paymentMethod}</Text>
+            <Text style={styles.text}>Tổng chi phí: {formatPrice(Number(order.totalCost))}</Text> 
+            <Text style={styles.text}>Địa chỉ: {order.address}</Text>
+            <Text style={styles.text}>Thời gian đặt: {formatDate(order.ordertime)}</Text>
 
-          <View style={styles.orderItemsList}>
-            {order.order_items.map((item) => (
-              <View key={item.id} style={styles.orderItemContainer}>
-                <Image source={{ uri: item.image }} style={styles.orderItemImage} />
-                <View style={styles.orderItemDetails}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text>Giá: {formatPrice(item.price)}</Text> 
-                  <Text>Số lượng: {item.quantity}</Text>
+            <View style={styles.orderItemsList}>
+              {order.order_items.map((item) => (
+                <View key={item.id} style={styles.orderItemContainer}>
+                  <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+                  <View style={styles.orderItemDetails}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.text}>Giá: {formatPrice(item.price)}</Text> 
+                    <Text style={styles.text}>Số lượng: {item.quantity}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-
-          {order.status === 'pending' && (
-            <Button
-              title="XÁC NHẬN"
-              onPress={() => handleStatusChange(order.id)}
-            />
-          )}
-        </View>
-      ))}
-    </ScrollView>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+  },
+  header: {
+    paddingTop: 40,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   ordersList: {
-    padding: 16,
-    backgroundColor: '#FFF8E8',
+    paddingHorizontal: 16,
   },
   orderContainer: {
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
     backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 4,
   },
   orderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '500',
+    color: '#333',
     marginBottom: 8,
+  },
+  status: {
+    fontSize: 14,
+    color: '#FF6B6B', // red color for status
+    marginBottom: 8,
+  },
+  text: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 6,
+  },
+  orderItemsList: {
+    marginTop: 10,
   },
   orderItemContainer: {
     flexDirection: 'row',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    marginBottom: 12,
     borderRadius: 8,
-    padding: 8,
+    padding: 12,
+    backgroundColor: '#f9f9f9',
   },
   orderItemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
+    width: 60,
+    height: 60,
+    borderRadius: 8,
     marginRight: 16,
   },
   orderItemDetails: {
     flex: 1,
   },
   itemName: {
-    fontWeight: 'bold',
+    fontWeight: '500',
+    color: '#333',
   },
-  orderItemsList: {
-    marginTop: 10,
+  confirmButton: {
+    backgroundColor: '#1E90FF',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
   },
 });

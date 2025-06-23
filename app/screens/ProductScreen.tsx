@@ -123,7 +123,7 @@ export default function ProductScreen() {
   
       const userId = session?.session?.user?.id;
       if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
+        Alert.alert('Thông báo', 'Khách hàng, vui lòng đăng nhập để tiếp tục.');
         return;
       }
   
@@ -210,7 +210,7 @@ export default function ProductScreen() {
   
       const userId = session?.session?.user?.id;
       if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để tiếp tục.');
         return;
       }
   
@@ -263,15 +263,30 @@ export default function ProductScreen() {
   };
   
 
-  const handleBuyNow = () => {
-    navigation.navigate('Purchase', {
-      id: id,  
-      name: productName,
-      price: Number(price),  
-      quantity: quantity, 
-      image: image,
-    });
+  const handleBuyNow = async () => {
+    try {
+      const { data: session, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+  
+      const userId = session?.session?.user?.id;
+      if (!userId) {
+        Alert.alert('Thông báo', 'Khách hàng, vui lòng đăng nhập để tiếp tục.');
+        return;
+      }
+  
+      navigation.navigate('Purchase', {
+        id: id,  
+        name: productName,
+        price: Number(price),  
+        quantity: quantity, 
+        image: image,
+      });
+    } catch (error) {
+      console.error('Error checking session:', error);
+      Alert.alert('Lỗi', 'Đã xảy ra lỗi. Vui lòng thử lại.');
+    }
   };
+  
 
   const checkIfLiked = async () => {
     const { data: session, error: sessionError } = await supabase.auth.getSession();

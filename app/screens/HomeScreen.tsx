@@ -119,14 +119,11 @@ export default function HomeScreen() {
                   )}
                 </View>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('ChatTotal')}>
               <View style={style.cartIconWrapper}>
                 <Ionicons name="chatbubble-ellipses-outline" size={24} color="#333" />
-                  {quantity.quantity > 0 && (
-                    <Text style={style.cartQuantity}>
-                      {quantity.quantity > 99 ? '99+' : quantity.quantity}
-                    </Text>
-                  )}
-                </View>
+              </View>
+              </TouchableOpacity>
             </View>
           </View>
           <View style={style.itemContainer}>
