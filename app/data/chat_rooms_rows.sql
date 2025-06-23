@@ -1,0 +1,1 @@
+INSERT INTO "public"."chat_rooms" ("id", "created_at", "shop_id", "user_id") VALUES ('2', '2025-04-28 15:55:16.581+00', '20', '4'), ('3', '2025-05-09 15:07:22.652+00', '5', '7');

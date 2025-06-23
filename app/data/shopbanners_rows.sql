@@ -1,0 +1,1 @@
+INSERT INTO "public"."shopbanners" ("id", "shop_id", "main_banner", "body_banner", "foot_banner", "updated_at") VALUES ('4', '5', 'https://njulzxtvzglbrsxdgbcq.supabase.co/storage/v1/object/public/image/bannerImages/5_1744296360322_y50pzqs0bc.jpg', '[]', null, '2025-04-10 14:46:03.514');
